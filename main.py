@@ -18,9 +18,11 @@ load_dotenv()
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from typing import Optional
 
 import ml_pipeline
 import runbook_generator
+import code_analyzer
 from contextlib import asynccontextmanager
 
 # ---------------------------------------------------------------------------
@@ -32,7 +34,7 @@ async def lifespan(app: FastAPI):
     """Pre-warm the ML model at startup so the first request is instant."""
     print("[startup] Loading sentence-transformer model...")
     ml_pipeline._get_model()          # loads + caches the model now
-    print("[startup] Model ready. DevGuard AI is live.")
+    print("[startup] AI code analysis ready. DevGuard AI is live.")
     yield
     # (shutdown logic can go here if needed)
 
@@ -57,6 +59,21 @@ app.add_middleware(
 
 class AnalyzeRequest(BaseModel):
     log_text: str
+
+
+class AnalyzeRepositoryRequest(BaseModel):
+    owner: str
+    repo: str
+    branch: Optional[str] = None
+    max_files: int = 30
+    extensions: Optional[list[str]] = None
+
+
+class AnalyzePRRequest(BaseModel):
+    owner: str
+    repo: str
+    pr_number: int
+    extensions: Optional[list[str]] = None
 
 
 # ---------------------------------------------------------------------------
@@ -140,4 +157,160 @@ async def analyze_endpoint(request: AnalyzeRequest):
         raise HTTPException(
             status_code=500,
             detail=f"Internal error during log analysis: {exc}",
+        ) from exc
+
+
+@app.post("/analyze/repository", tags=["Code Analysis"])
+async def analyze_repository_endpoint(request: AnalyzeRepositoryRequest):
+    """
+    Analyze all source files in a GitHub repository using Gemini AI.
+
+    **Request body**
+    ```json
+    {
+      "owner": "torvalds",
+      "repo": "linux",
+      "branch": "master",
+      "max_files": 30,
+      "extensions": [".c", ".h"]
+    }
+    ```
+
+    **Response** — structured analysis with issues sorted by severity:
+    ```json
+    {
+      "repo": "owner/repo",
+      "branch": "main",
+      "files_analyzed": 25,
+      "total_issues": 12,
+      "issues": [
+        {
+          "file_name": "src/api.py",
+          "line_number": "42",
+          "issue_type": "Security",
+          "severity": "critical",
+          "explanation": "...",
+          "recommended_fix": "...",
+          "corrected_code": "..."
+        }
+      ],
+      "summary": {
+        "by_severity": {"critical": 2, "high": 3, "medium": 5, "low": 2},
+        "by_type": {"Security": 3, "Bug": 5, ...}
+      },
+      "errors": []
+    }
+    ```
+    """
+    if not request.owner or not request.repo:
+        raise HTTPException(
+            status_code=400,
+            detail="owner and repo are required.",
+        )
+
+    try:
+        result = code_analyzer.analyze_repository(
+            owner=request.owner,
+            repo=request.repo,
+            extensions=request.extensions,
+            max_files=request.max_files,
+            branch=request.branch,
+        )
+        return result
+    except code_analyzer.github_service.GitHubRateLimitError as exc:
+        raise HTTPException(
+            status_code=429,
+            detail=f"GitHub API rate limit hit. Retry after {exc.retry_after}s.",
+        ) from exc
+    except code_analyzer.github_service.GitHubAuthError as exc:
+        raise HTTPException(
+            status_code=401,
+            detail=f"GitHub authentication failed: {exc}",
+        ) from exc
+    except code_analyzer.github_service.GitHubNotFoundError as exc:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Repository not found: {exc}",
+        ) from exc
+    except code_analyzer.github_service.GitHubError as exc:
+        raise HTTPException(
+            status_code=502,
+            detail=f"GitHub API error: {exc}",
+        ) from exc
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Internal error during repository analysis: {exc}",
+        ) from exc
+
+
+@app.post("/analyze/pull-request", tags=["Code Analysis"])
+async def analyze_pull_request_endpoint(request: AnalyzePRRequest):
+    """
+    Analyze changed files in a GitHub pull request using Gemini AI.
+
+    **Request body**
+    ```json
+    {
+      "owner": "torvalds",
+      "repo": "linux",
+      "pr_number": 1234,
+      "extensions": [".py", ".ts"]
+    }
+    ```
+
+    **Response** — analysis of changed files with issues:
+    ```json
+    {
+      "repo": "owner/repo",
+      "pr_number": 1234,
+      "pr_title": "Fix memory leak in parser",
+      "pr_author": "alice",
+      "pr_url": "https://github.com/...",
+      "files_analyzed": 3,
+      "total_issues": 5,
+      "issues": [...],
+      "summary": {...},
+      "errors": []
+    }
+    ```
+    """
+    if not request.owner or not request.repo or request.pr_number < 1:
+        raise HTTPException(
+            status_code=400,
+            detail="owner, repo, and valid pr_number are required.",
+        )
+
+    try:
+        result = code_analyzer.analyze_pull_request(
+            owner=request.owner,
+            repo=request.repo,
+            pr_number=request.pr_number,
+            extensions=request.extensions,
+        )
+        return result
+    except code_analyzer.github_service.GitHubRateLimitError as exc:
+        raise HTTPException(
+            status_code=429,
+            detail=f"GitHub API rate limit hit. Retry after {exc.retry_after}s.",
+        ) from exc
+    except code_analyzer.github_service.GitHubAuthError as exc:
+        raise HTTPException(
+            status_code=401,
+            detail=f"GitHub authentication failed: {exc}",
+        ) from exc
+    except code_analyzer.github_service.GitHubNotFoundError as exc:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Resource not found: {exc}",
+        ) from exc
+    except code_analyzer.github_service.GitHubError as exc:
+        raise HTTPException(
+            status_code=502,
+            detail=f"GitHub API error: {exc}",
+        ) from exc
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Internal error during PR analysis: {exc}",
         ) from exc
