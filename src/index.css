@@ -1,0 +1,119 @@
+@import "tailwindcss";
+
+@theme {
+  --color-bg-dark: #090a0f;
+  --color-card-dark: rgba(17, 18, 28, 0.7);
+  --color-accent-primary: #8b5cf6; /* violet-500 */
+  --color-accent-secondary: #ec4899; /* pink-500 */
+  --color-border-dark: rgba(255, 255, 255, 0.08);
+}
+
+/* Custom global rules */
+body {
+  background-color: #090a0f;
+  color: #f3f4f6;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* Glassmorphism utility card */
+.glass-card {
+  background: rgba(15, 17, 26, 0.65);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.glass-card-hover {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.glass-card-hover:hover {
+  transform: translateY(-2px);
+  border-color: rgba(139, 92, 246, 0.3);
+  box-shadow: 0 10px 30px -10px rgba(139, 92, 246, 0.15);
+}
+
+/* Custom scrollbars */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0d0e14;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #252836;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #3b3f54;
+}
+
+/* Glowing text and badges */
+.glow-critical {
+  text-shadow: 0 0 12px rgba(239, 68, 68, 0.4);
+}
+
+.glow-warning {
+  text-shadow: 0 0 12px rgba(245, 158, 11, 0.4);
+}
+
+.glow-info {
+  text-shadow: 0 0 12px rgba(59, 130, 246, 0.4);
+}
+
+/* Animated backgrounds */
+@keyframes gradient-bg {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.animated-gradient {
+  background-size: 200% 200%;
+  animation: gradient-bg 8s ease infinite;
+}
+
+/* Markdown styling classes */
+.markdown-body h1, .markdown-body h2, .markdown-body h3 {
+  color: #f3f4f6;
+  font-weight: 600;
+  margin-top: 1.5rem;
+  margin-bottom: 0.75rem;
+}
+.markdown-body h1 { font-size: 1.5rem; border-bottom: 1px solid rgba(255, 255, 255, 0.1); padding-bottom: 0.25rem; }
+.markdown-body h2 { font-size: 1.25rem; }
+.markdown-body h3 { font-size: 1.1rem; }
+.markdown-body p { margin-bottom: 1rem; line-height: 1.6; color: #d1d5db; }
+.markdown-body ul, .markdown-body ol { margin-bottom: 1rem; padding-left: 1.5rem; list-style-type: decimal; }
+.markdown-body ul { list-style-type: disc; }
+.markdown-body li { margin-bottom: 0.25rem; color: #d1d5db; }
+.markdown-body code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.9em;
+  background-color: rgba(255, 255, 255, 0.08);
+  padding: 0.2rem 0.4rem;
+  border-radius: 4px;
+  color: #a78bfa;
+}
+.markdown-body pre {
+  background-color: #0b0c10;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 1rem;
+  border-radius: 8px;
+  overflow-x: auto;
+  margin-bottom: 1rem;
+}
+.markdown-body pre code {
+  background-color: transparent;
+  padding: 0;
+  border-radius: 0;
+  color: #e2e8f0;
+}
