@@ -1,7 +1,7 @@
-<<<<<<< HEAD
+HEAD
 # DevGuard AI — Engineering Intelligence Platform
 
-> **Production breaks. Engineers panic. Anchor fixes it.**
+ **Production breaks. Engineers panic. Anchor fixes it.**
 
 An AI-powered backend service that analyzes production logs and GitHub repositories to detect bugs, security vulnerabilities, performance issues, and generate actionable runbooks. Built for hackathons using **free-tier APIs only**.
 
@@ -402,4 +402,4 @@ The React Compiler is not enabled on this template because of its impact on dev 
 ## Expanding the ESLint configuration
 
 If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
->>>>>>> origin/frontend
+origin/frontend
