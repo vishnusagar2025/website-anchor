@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8"/>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { width: 280px; background: #0d1117; color: #e6edf3; font-family: -apple-system, sans-serif; padding: 16px; }
+
+    .header { display: flex; align-items: center; gap: 10px; padding-bottom: 14px; border-bottom: 1px solid #21262d; margin-bottom: 14px; }
+    .header-icon { font-size: 28px; }
+    .header-title { font-size: 17px; font-weight: 800; color: #fff; }
+    .header-sub { font-size: 10px; color: #8b949e; margin-top: 2px; }
+
+    .status-box { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 10px 12px; margin-bottom: 12px; }
+    .status-title { font-size: 10px; font-weight: 700; text-transform: uppercase; color: #8b949e; letter-spacing: 0.5px; margin-bottom: 8px; }
+    .status-row { display: flex; justify-content: space-between; align-items: center; padding: 3px 0; font-size: 12px; color: #c9d1d9; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .dot-green  { background: #3fb950; box-shadow: 0 0 4px #3fb950; }
+    .dot-red    { background: #f85149; }
+    .dot-yellow { background: #d29922; }
+
+    .feature-list { margin-bottom: 14px; }
+    .feature-item { display: flex; gap: 8px; align-items: flex-start; padding: 5px 0; font-size: 11px; color: #8b949e; border-bottom: 1px solid #21262d; }
+    .feature-item:last-child { border-bottom: none; }
+    .feature-icon { font-size: 14px; flex-shrink: 0; }
+    .feature-text strong { display: block; color: #c9d1d9; font-size: 11px; margin-bottom: 1px; }
+
+    .btn { width: 100%; padding: 9px; border: none; border-radius: 6px; font-size: 12px; font-weight: 700; cursor: pointer; margin-bottom: 6px; transition: background 0.15s; }
+    .btn-blue   { background: #1f6feb; color: #fff; }
+    .btn-blue:hover   { background: #388bfd; }
+    .btn-ghost  { background: #21262d; color: #8b949e; }
+    .btn-ghost:hover  { background: #30363d; color: #fff; }
+
+    .hint { font-size: 10px; color: #484f58; text-align: center; margin-top: 8px; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="header-icon">⚓</div>
+    <div>
+      <div class="header-title">Anchor</div>
+      <div class="header-sub">Zero-Drift Collaboration Intelligence</div>
+    </div>
+  </div>
+
+  <div class="status-box">
+    <div class="status-title">System Status</div>
+    <div class="status-row">
+      <span>Backend API</span>
+      <div class="dot dot-yellow" id="api-dot"></div>
+    </div>
+    <div class="status-row">
+      <span>GitHub Integration</span>
+      <div class="dot dot-green"></div>
+    </div>
+    <div class="status-row">
+      <span>AI Engine (Bedrock)</span>
+      <div class="dot" id="ai-dot" style="background:#484f58"></div>
+    </div>
+  </div>
+
+  <div class="feature-list">
+    <div class="feature-item">
+      <span class="feature-icon">🤝</span>
+      <div class="feature-text">
+        <strong>Collaboration Guard</strong>
+        Detects conflicts before your team merges
+      </div>
+    </div>
+    <div class="feature-item">
+      <span class="feature-icon">🔍</span>
+      <div class="feature-text">
+        <strong>Pipeline Analyzer</strong>
+        Checks code against your CI/CD rules
+      </div>
+    </div>
+    <div class="feature-item">
+      <span class="feature-icon">⚡</span>
+      <div class="feature-text">
+        <strong>Pre-Push Predictor</strong>
+        Predicts failures before git push
+      </div>
+    </div>
+    <div class="feature-item">
+      <span class="feature-icon">📋</span>
+      <div class="feature-text">
+        <strong>Log Intelligence</strong>
+        Turns production logs into runbooks
+      </div>
+    </div>
+  </div>
+
+  <button class="btn btn-blue" id="open-btn">⚓ Open Anchor Panel</button>
+  <button class="btn btn-ghost" onclick="window.open('http://localhost:8000/docs')">📖 API Docs</button>
+
+  <div class="hint">Works on any github.com page</div>
+
+  <script>
+    fetch("http://localhost:8000/health")
+      .then(r => r.json())
+      .then(d => {
+        document.getElementById("api-dot").className = "dot dot-green";
+        document.getElementById("ai-dot").className  = "dot dot-yellow";
+      })
+      .catch(() => {
+        document.getElementById("api-dot").className = "dot dot-red";
+      });
+
+    document.getElementById("open-btn").onclick = () => {
+      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        const tab = tabs[0];
+        if (tab.url && tab.url.includes("github.com")) {
+          chrome.scripting.executeScript({
+            target: { tabId: tab.id },
+            func: () => {
+              const p = document.getElementById("anchor-panel");
+              if (p) p.classList.toggle("open");
+            }
+          });
+        } else {
+          chrome.tabs.create({ url: "https://github.com" });
+        }
+        window.close();
+      });
+    };
+  </script>
+</body>
+</html>
