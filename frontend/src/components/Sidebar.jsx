@@ -19,16 +19,14 @@ export default function Sidebar() {
 
   useEffect(() => {
     const check = async () => {
-    const backendUrl = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace('/api', '') : 'http://localhost:8000'
+      const backendUrl = import.meta.env.VITE_API_URL 
+        ? import.meta.env.VITE_API_URL.replace('/api', '') 
+        : 'http://localhost:8000'
       try {
         const res = await fetch(`${backendUrl}/health`)
         setBackendOk(res.ok)
       } catch { setBackendOk(false) }
-
-      try {
-        const res = await fetch('http://localhost:11434/api/tags')
-        setOllamaOk(res.ok)
-      } catch { setOllamaOk(false) }
+      setOllamaOk(null)
     }
     check()
     const id = setInterval(check, 15000)
@@ -71,15 +69,6 @@ export default function Sidebar() {
             <StatusDot ok={backendOk} />
             <span className={backendOk === null ? 'text-gray-500' : backendOk ? 'text-anchor-green' : 'text-anchor-red'}>
               {backendOk === null ? 'Checking...' : backendOk ? 'Online' : 'Offline'}
-            </span>
-          </div>
-        </div>
-        <div className="flex items-center justify-between text-xs text-gray-400">
-          <span>Ollama (llama3)</span>
-          <div className="flex items-center gap-1.5">
-            <StatusDot ok={ollamaOk} />
-            <span className={ollamaOk === null ? 'text-gray-500' : ollamaOk ? 'text-anchor-green' : 'text-anchor-red'}>
-              {ollamaOk === null ? 'Checking...' : ollamaOk ? 'Online' : 'Offline'}
             </span>
           </div>
         </div>
