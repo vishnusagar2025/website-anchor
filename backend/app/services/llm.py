@@ -12,7 +12,7 @@ def invoke_llm(prompt: str) -> str:
         "prompt": prompt,
         "stream": False,
         "options": {
-            "num_predict": 300,
+            "num_predict": 600,
             "temperature": 0.1
         }
     }).encode()

@@ -14,13 +14,9 @@ async def predict_push(req: PrePushRequest):
     except Exception:
         repo_ctx = {"name": req.repo_full_name, "workflows": [], "branch_protection": None, "lint_configs": []}
 
-    prompt = f"""Analyze this git diff for risks. Return ONLY JSON, no explanation.
-
-DIFF:
-{req.diff[:400]}
-
-Return this exact JSON:
-{{"merge_conflict_risk":"low","ci_failure_predictions":["issue1"],"branch_violations":[],"recommendations":["fix1","fix2"],"risk_level":"medium"}}"""
+    prompt = f"""Analyze this git diff for risks. Return ONLY JSON.
+DIFF: {req.diff[:300]}
+JSON: {{"merge_conflict_risk":"low","ci_failure_predictions":["issue1"],"branch_violations":[],"recommendations":["fix1"],"risk_level":"medium"}}"""
 
     raw = invoke_llm(prompt)
     try:

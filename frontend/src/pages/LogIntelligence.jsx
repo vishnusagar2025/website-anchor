@@ -86,8 +86,8 @@ function IncidentCard({ incident }) {
 }
 
 export default function LogIntelligence() {
-  const [logs, setLogs] = useState('')
-  const [result, setResult] = useState(null)
+  const [logs, setLogs] = useState(() => localStorage.getItem('logs_form') || '')
+  const [result, setResult] = useState(() => { try { return JSON.parse(localStorage.getItem('logs_result')) } catch { return null } })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [severityFilter, setSeverityFilter] = useState('all')
@@ -101,6 +101,7 @@ export default function LogIntelligence() {
     try {
       const res = await analyzeLogs({ logs })
       setResult(res)
+      localStorage.setItem('logs_result', JSON.stringify(res))
       add({ logs: logs.slice(0, 100), result: res })
     } catch (err) {
       setError(err.response?.data?.detail || 'Log analysis failed')
@@ -109,7 +110,7 @@ export default function LogIntelligence() {
     }
   }
 
-  const reset = () => { setLogs(''); setResult(null); setError(''); setSeverityFilter('all') }
+  const reset = () => { setLogs(''); setResult(null); setError(''); setSeverityFilter('all'); localStorage.removeItem('logs_result'); localStorage.removeItem('logs_form') }
 
   const filteredIncidents = result?.incidents.filter(inc =>
     severityFilter === 'all' || inc.severity === severityFilter
@@ -143,7 +144,7 @@ export default function LogIntelligence() {
               className="w-full bg-anchor-dark border border-anchor-border rounded-lg px-3 py-2 text-sm text-white font-mono focus:border-anchor-accent outline-none h-56 resize-none"
               placeholder="Paste raw log output here (any format)..."
               value={logs}
-              onChange={e => setLogs(e.target.value)}
+              onChange={e => { setLogs(e.target.value); localStorage.setItem('logs_form', e.target.value) }}
               required
             />
           </div>

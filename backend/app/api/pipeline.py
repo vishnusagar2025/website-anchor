@@ -14,13 +14,9 @@ async def analyze_pipeline(req: PipelineAnalysisRequest):
     except Exception:
         repo_ctx = {"name": req.repo_full_name, "workflows": [], "branch_protection": None, "lint_configs": []}
 
-    prompt = f"""Review this code for security issues. Return ONLY JSON, no explanation.
-
-CODE:
-{req.code_snippet[:500]}
-
-Return this exact JSON:
-{{"violations":["issue1","issue2"],"suggestions":["fix1","fix2"],"workflow_issues":[],"compliance_score":50}}"""
+    prompt = f"""List security issues in this code. Return ONLY JSON.
+CODE: {req.code_snippet[:300]}
+JSON: {{"violations":["issue1"],"suggestions":["fix1"],"workflow_issues":[],"compliance_score":50}}"""
 
     raw = invoke_llm(prompt)
     try:

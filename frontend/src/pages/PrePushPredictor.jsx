@@ -32,8 +32,8 @@ function timeAgo(iso) {
 }
 
 export default function PrePushPredictor() {
-  const [form, setForm] = useState({ repo_full_name: '', base_branch: 'main', diff: '' })
-  const [result, setResult] = useState(null)
+  const [form, setForm] = useState(() => { try { return JSON.parse(localStorage.getItem('predictor_form')) || { repo_full_name: '', base_branch: 'main', diff: '' } } catch { return { repo_full_name: '', base_branch: 'main', diff: '' } } })
+  const [result, setResult] = useState(() => { try { return JSON.parse(localStorage.getItem('predictor_result')) } catch { return null } })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const { history, add, clear } = useHistory('predictor_history')
@@ -46,6 +46,7 @@ export default function PrePushPredictor() {
     try {
       const res = await predictPush(form)
       setResult(res)
+      localStorage.setItem('predictor_result', JSON.stringify(res))
       add({ form, result: res })
     } catch (err) {
       setError(err.response?.data?.detail || 'Prediction failed')
@@ -54,7 +55,7 @@ export default function PrePushPredictor() {
     }
   }
 
-  const reset = () => { setForm({ repo_full_name: '', base_branch: 'main', diff: '' }); setResult(null); setError('') }
+  const reset = () => { setForm({ repo_full_name: '', base_branch: 'main', diff: '' }); setResult(null); setError(''); localStorage.removeItem('predictor_result'); localStorage.removeItem('predictor_form') }
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -85,7 +86,7 @@ export default function PrePushPredictor() {
                 className="w-full bg-anchor-dark border border-anchor-border rounded-lg px-3 py-2 text-sm text-white focus:border-anchor-accent outline-none"
                 placeholder="e.g. myorg/myrepo"
                 value={form.repo_full_name}
-                onChange={e => setForm({ ...form, repo_full_name: e.target.value })}
+                onChange={e => { const f = { ...form, repo_full_name: e.target.value }; setForm(f); localStorage.setItem('predictor_form', JSON.stringify(f)) }}
                 required
               />
             </div>
@@ -94,7 +95,7 @@ export default function PrePushPredictor() {
               <input
                 className="w-full bg-anchor-dark border border-anchor-border rounded-lg px-3 py-2 text-sm text-white focus:border-anchor-accent outline-none"
                 value={form.base_branch}
-                onChange={e => setForm({ ...form, base_branch: e.target.value })}
+                onChange={e => { const f = { ...form, base_branch: e.target.value }; setForm(f); localStorage.setItem('predictor_form', JSON.stringify(f)) }}
               />
             </div>
           </div>
@@ -104,7 +105,7 @@ export default function PrePushPredictor() {
               className="w-full bg-anchor-dark border border-anchor-border rounded-lg px-3 py-2 text-sm text-white font-mono focus:border-anchor-accent outline-none h-52 resize-none"
               placeholder="Paste your git diff output here..."
               value={form.diff}
-              onChange={e => setForm({ ...form, diff: e.target.value })}
+              onChange={e => { const f = { ...form, diff: e.target.value }; setForm(f); localStorage.setItem('predictor_form', JSON.stringify(f)) }}
               required
             />
           </div>

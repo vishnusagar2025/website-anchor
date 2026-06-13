@@ -34,8 +34,8 @@ function timeAgo(iso) {
 }
 
 export default function PipelineAnalyzer() {
-  const [form, setForm] = useState({ repo_full_name: '', file_path: '', code_snippet: '' })
-  const [result, setResult] = useState(null)
+  const [form, setForm] = useState(() => { try { return JSON.parse(localStorage.getItem('pipeline_form')) || { repo_full_name: '', file_path: '', code_snippet: '' } } catch { return { repo_full_name: '', file_path: '', code_snippet: '' } } })
+  const [result, setResult] = useState(() => { try { return JSON.parse(localStorage.getItem('pipeline_result')) } catch { return null } })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const { history, add, clear } = useHistory('pipeline_history')
@@ -48,6 +48,7 @@ export default function PipelineAnalyzer() {
     try {
       const res = await analyzePipeline(form)
       setResult(res)
+      localStorage.setItem('pipeline_result', JSON.stringify(res))
       add({ form, result: res })
     } catch (err) {
       setError(err.response?.data?.detail || 'Analysis failed')
@@ -56,7 +57,7 @@ export default function PipelineAnalyzer() {
     }
   }
 
-  const reset = () => { setForm({ repo_full_name: '', file_path: '', code_snippet: '' }); setResult(null); setError('') }
+  const reset = () => { setForm({ repo_full_name: '', file_path: '', code_snippet: '' }); setResult(null); setError(''); localStorage.removeItem('pipeline_result'); localStorage.removeItem('pipeline_form') }
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -87,7 +88,7 @@ export default function PipelineAnalyzer() {
                 className="w-full bg-anchor-dark border border-anchor-border rounded-lg px-3 py-2 text-sm text-white focus:border-anchor-accent outline-none"
                 placeholder="e.g. facebook/react"
                 value={form.repo_full_name}
-                onChange={e => setForm({ ...form, repo_full_name: e.target.value })}
+                onChange={e => { const f = { ...form, repo_full_name: e.target.value }; setForm(f); localStorage.setItem('pipeline_form', JSON.stringify(f)) }}
                 required
               />
             </div>
@@ -97,7 +98,7 @@ export default function PipelineAnalyzer() {
                 className="w-full bg-anchor-dark border border-anchor-border rounded-lg px-3 py-2 text-sm text-white focus:border-anchor-accent outline-none"
                 placeholder="e.g. src/app.py"
                 value={form.file_path}
-                onChange={e => setForm({ ...form, file_path: e.target.value })}
+                onChange={e => { const f = { ...form, file_path: e.target.value }; setForm(f); localStorage.setItem('pipeline_form', JSON.stringify(f)) }}
               />
             </div>
           </div>
@@ -107,7 +108,7 @@ export default function PipelineAnalyzer() {
               className="w-full bg-anchor-dark border border-anchor-border rounded-lg px-3 py-2 text-sm text-white font-mono focus:border-anchor-accent outline-none h-48 resize-none"
               placeholder="Paste your code here..."
               value={form.code_snippet}
-              onChange={e => setForm({ ...form, code_snippet: e.target.value })}
+              onChange={e => { const f = { ...form, code_snippet: e.target.value }; setForm(f); localStorage.setItem('pipeline_form', JSON.stringify(f)) }}
               required
             />
           </div>

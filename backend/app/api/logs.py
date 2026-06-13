@@ -16,12 +16,8 @@ async def analyze_logs(req: LogAnalysisRequest):
     log_sample = "\n".join(representative)
 
     prompt = f"""Analyze these logs. Return ONLY JSON.
-
-LOGS:
-{log_sample}
-
-Return this exact JSON:
-{{"summary":"brief summary","incidents":[{{"pattern":"error pattern","root_cause":"cause","severity":"high","recommended_fixes":["fix1"],"cost_impact":"low","runbook":["step1","step2"]}}]}}"""
+LOGS: {log_sample}
+JSON: {{"summary":"one sentence","incidents":[{{"pattern":"error","root_cause":"cause","severity":"high","recommended_fixes":["fix1"],"cost_impact":"low","runbook":["step1","step2"]}}]}}"""
 
     raw = invoke_llm(prompt)
     try:
