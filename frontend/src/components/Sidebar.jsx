@@ -1,4 +1,5 @@
 import { NavLink } from 'react-router-dom'
+import { useEffect, useState } from 'react'
 import { Anchor, GitBranch, Zap, ScrollText, LayoutDashboard } from 'lucide-react'
 
 const links = [
@@ -8,7 +9,31 @@ const links = [
   { to: '/logs', icon: ScrollText, label: 'Log Intelligence' },
 ]
 
+function StatusDot({ ok }) {
+  return <span className={`inline-block w-2 h-2 rounded-full ${ok === null ? 'bg-gray-500' : ok ? 'bg-anchor-green' : 'bg-anchor-red'}`} />
+}
+
 export default function Sidebar() {
+  const [backendOk, setBackendOk] = useState(null)
+  const [ollamaOk, setOllamaOk] = useState(null)
+
+  useEffect(() => {
+    const check = async () => {
+      try {
+        const res = await fetch('http://localhost:8000/health')
+        setBackendOk(res.ok)
+      } catch { setBackendOk(false) }
+
+      try {
+        const res = await fetch('http://localhost:11434/api/tags')
+        setOllamaOk(res.ok)
+      } catch { setOllamaOk(false) }
+    }
+    check()
+    const id = setInterval(check, 15000)
+    return () => clearInterval(id)
+  }, [])
+
   return (
     <aside className="fixed left-0 top-0 h-full w-64 bg-anchor-card border-r border-anchor-border flex flex-col">
       <div className="flex items-center gap-3 p-6 border-b border-anchor-border">
@@ -37,8 +62,27 @@ export default function Sidebar() {
           </NavLink>
         ))}
       </nav>
-      <div className="p-4 border-t border-anchor-border">
-        <p className="text-xs text-gray-500 text-center">HackArena 2.0 · MVP</p>
+      <div className="p-4 border-t border-anchor-border space-y-2">
+        <p className="text-xs text-gray-500 uppercase tracking-wide mb-2">System Status</p>
+        <div className="flex items-center justify-between text-xs text-gray-400">
+          <span>Backend API</span>
+          <div className="flex items-center gap-1.5">
+            <StatusDot ok={backendOk} />
+            <span className={backendOk === null ? 'text-gray-500' : backendOk ? 'text-anchor-green' : 'text-anchor-red'}>
+              {backendOk === null ? 'Checking...' : backendOk ? 'Online' : 'Offline'}
+            </span>
+          </div>
+        </div>
+        <div className="flex items-center justify-between text-xs text-gray-400">
+          <span>Ollama (llama3)</span>
+          <div className="flex items-center gap-1.5">
+            <StatusDot ok={ollamaOk} />
+            <span className={ollamaOk === null ? 'text-gray-500' : ollamaOk ? 'text-anchor-green' : 'text-anchor-red'}>
+              {ollamaOk === null ? 'Checking...' : ollamaOk ? 'Online' : 'Offline'}
+            </span>
+          </div>
+        </div>
+
       </div>
     </aside>
   )
