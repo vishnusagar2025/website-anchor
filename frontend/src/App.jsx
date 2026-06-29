@@ -4,7 +4,7 @@ import Dashboard from './pages/Dashboard'
 import PipelineAnalyzer from './pages/PipelineAnalyzer'
 import PrePushPredictor from './pages/PrePushPredictor'
 import LogIntelligence from './pages/LogIntelligence'
-import Chatbot from './components/Chatbot'
+import AiAssistant from './pages/AiAssistant'
 
 export default function App() {
   return (
@@ -16,12 +16,9 @@ export default function App() {
           <Route path="/pipeline" element={<PipelineAnalyzer />} />
           <Route path="/predictor" element={<PrePushPredictor />} />
           <Route path="/logs" element={<LogIntelligence />} />
+          <Route path="/assistant" element={<AiAssistant />} />
         </Routes>
       </main>
-      {/* Global floating AI Chatbot */}
-      <Chatbot />
     </div>
   )
 }
-
-
