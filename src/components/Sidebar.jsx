@@ -1,0 +1,94 @@
+import { NavLink } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { Anchor, GitBranch, Zap, ScrollText, LayoutDashboard, MessageSquare } from 'lucide-react'
+
+const links = [
+  { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
+  { to: '/pipeline', icon: GitBranch, label: 'Pipeline Analyzer' },
+  { to: '/predictor', icon: Zap, label: 'Pre-Push Predictor' },
+  { to: '/logs', icon: ScrollText, label: 'Log Intelligence' },
+  { to: '/assistant', icon: MessageSquare, label: 'AI Assistant', highlight: true },
+]
+
+function StatusDot({ ok }) {
+  return <span className={`inline-block w-2 h-2 rounded-full ${ok === null ? 'bg-gray-500' : ok ? 'bg-anchor-green' : 'bg-anchor-red'}`} />
+}
+
+const BACKEND = import.meta.env.VITE_API_URL?.replace('/api', '') || ''
+
+export default function Sidebar() {
+  const [backendOk, setBackendOk] = useState(null)
+
+  useEffect(() => {
+    let retries = 0
+    const check = async () => {
+      try {
+        const res = await fetch(`${BACKEND}/health`)
+        if (res.ok) {
+          setBackendOk(true)
+          retries = 0
+        } else {
+          throw new Error()
+        }
+      } catch {
+        if (retries < 3) {
+          retries++
+          setBackendOk(null) // show "Connecting..."
+          setTimeout(check, 5000)
+        } else {
+          setBackendOk(false)
+        }
+      }
+    }
+    check()
+    const id = setInterval(() => { retries = 0; check() }, 30000)
+    return () => clearInterval(id)
+  }, [])
+
+  return (
+    <aside className="fixed left-0 top-0 h-full w-64 bg-anchor-card border-r border-anchor-border flex flex-col">
+      <div className="flex items-center gap-3 p-6 border-b border-anchor-border">
+        <Anchor className="text-anchor-accent" size={28} />
+        <div>
+          <h1 className="font-bold text-white text-lg leading-none">Anchor</h1>
+          <p className="text-xs text-gray-400 mt-0.5">Zero-Drift Intelligence</p>
+        </div>
+      </div>
+      <nav className="flex-1 p-4 space-y-1">
+        {links.map(({ to, icon: Icon, label, highlight }) => (
+          <NavLink
+            key={to}
+            to={to}
+            end={to === '/'}
+            className={({ isActive }) =>
+              `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${
+                isActive
+                  ? 'bg-anchor-accent/10 text-anchor-accent font-medium'
+                  : highlight
+                  ? 'text-violet-400 hover:text-violet-300 hover:bg-violet-500/10 border border-violet-500/20'
+                  : 'text-gray-400 hover:text-white hover:bg-white/5'
+              }`
+            }
+          >
+            <Icon size={18} />
+            {label}
+            {highlight && <span className="ml-auto text-[9px] bg-violet-500/20 text-violet-400 px-1.5 py-0.5 rounded-full font-semibold uppercase tracking-wide">AI</span>}
+          </NavLink>
+        ))}
+      </nav>
+      <div className="p-4 border-t border-anchor-border space-y-2">
+        <p className="text-xs text-gray-500 uppercase tracking-wide mb-2">System Status</p>
+        <div className="flex items-center justify-between text-xs text-gray-400">
+          <span>Backend API</span>
+          <div className="flex items-center gap-1.5">
+            <StatusDot ok={backendOk} />
+            <span className={backendOk === null ? 'text-gray-500' : backendOk ? 'text-anchor-green' : 'text-anchor-red'}>
+              {backendOk === null ? 'Connecting...' : backendOk ? 'Online' : 'Offline'}
+            </span>
+          </div>
+        </div>
+
+      </div>
+    </aside>
+  )
+}
