@@ -23,6 +23,7 @@ from typing import Optional
 import ml_pipeline
 import runbook_generator
 import code_analyzer
+import chat_service
 from contextlib import asynccontextmanager
 
 # ---------------------------------------------------------------------------
@@ -59,6 +60,17 @@ app.add_middleware(
 
 class AnalyzeRequest(BaseModel):
     log_text: str
+
+
+class ChatMessage(BaseModel):
+    role: str          # 'user' or 'assistant'
+    content: str
+
+
+class ChatRequest(BaseModel):
+    message: str
+    history: Optional[list[ChatMessage]] = []
+    context: Optional[str] = None  # optional log/runbook text for context injection
 
 
 class AnalyzeRepositoryRequest(BaseModel):
@@ -112,6 +124,48 @@ async def analyze_log(log_text: str) -> dict:
 async def health_check():
     """Quick health probe — returns 200 OK when the service is running."""
     return {"status": "ok"}
+
+
+@app.post("/chat", tags=["Chat"])
+async def chat_endpoint(request: ChatRequest):
+    """
+    Multi-turn GenAI chatbot endpoint.
+
+    **Request body**
+    ```json
+    {
+      "message": "What does this log mean?",
+      "history": [{"role": "user", "content": "..."}, {"role": "assistant", "content": "..."}],
+      "context": "optional log or runbook text"
+    }
+    ```
+
+    **Response**
+    ```json
+    { "reply": "AI response in markdown" }
+    ```
+    """
+    if not request.message or not request.message.strip():
+        raise HTTPException(status_code=400, detail="message must not be empty.")
+
+    # Convert Pydantic models to plain dicts for chat_service
+    history_dicts = [
+        {"role": msg.role, "content": msg.content}
+        for msg in (request.history or [])
+    ]
+
+    try:
+        reply = chat_service.chat(
+            history=history_dicts,
+            user_message=request.message,
+            context=request.context,
+        )
+        return {"reply": reply}
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Chat error: {exc}",
+        ) from exc
 
 
 @app.post("/analyze", tags=["Analysis"])

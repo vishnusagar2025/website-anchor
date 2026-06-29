@@ -3,6 +3,7 @@ import { Shield, Server, RefreshCw, CheckCircle2, AlertCircle, Play, Info, GitFo
 import LogInputPanel from './components/LogInputPanel';
 import RunbookDisplayPanel from './components/RunbookDisplayPanel';
 import WebhookSimulator from './components/WebhookSimulator';
+import Chatbot from './components/Chatbot';
 
 // Preset mock data generator for simulation fallback
 const MOCK_RESULTS = {
@@ -63,7 +64,7 @@ export default function App() {
     const checkBackend = async () => {
       try {
         // Fast ping to health check or analyze stub
-        const res = await fetch('http://localhost:8000/', { method: 'GET', signal: AbortSignal.timeout(2000) });
+        const res = await fetch('http://localhost:8000/health', { method: 'GET', signal: AbortSignal.timeout(2000) });
         setBackendStatus('online');
       } catch (err) {
         setBackendStatus('offline');
@@ -245,6 +246,15 @@ export default function App() {
           </div>
         </div>
       </footer>
+
+      {/* Global floating AI Chatbot — context-aware with current runbook result */}
+      <Chatbot
+        currentContext={
+          result
+            ? `Root Cause: ${result.root_cause || ''}\n\nSeverity: ${result.severity || ''}\n\nFix Steps:\n${(result.fix_steps || []).map((s, i) => `${i + 1}. ${s}`).join('\n')}`
+            : logsText
+        }
+      />
     </div>
   );
 }
