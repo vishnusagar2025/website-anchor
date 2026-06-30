@@ -1,4 +1,4 @@
-﻿import { useState } from 'react'
+import { useState } from 'react'
 import { analyzeLogs } from '../services/api'
 import Card from '../components/Card'
 import Badge from '../components/Badge'

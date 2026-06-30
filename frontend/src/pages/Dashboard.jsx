@@ -1,4 +1,4 @@
-﻿import { GitBranch, Zap, ScrollText, ShieldCheck } from 'lucide-react'
+import { GitBranch, Zap, ScrollText, ShieldCheck } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
 const features = [

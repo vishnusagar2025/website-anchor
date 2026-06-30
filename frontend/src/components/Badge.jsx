@@ -1,4 +1,4 @@
-﻿const severity = {
+const severity = {
   low: 'bg-anchor-green/10 text-anchor-green border-anchor-green/20',
   medium: 'bg-anchor-yellow/10 text-anchor-yellow border-anchor-yellow/20',
   high: 'bg-anchor-red/10 text-anchor-red border-anchor-red/20',
