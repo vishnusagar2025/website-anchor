@@ -126,6 +126,121 @@ async def health_check():
     return {"status": "ok"}
 
 
+# ---------------------------------------------------------------------------
+# Frontend-compatible endpoints (Groq-powered)
+# ---------------------------------------------------------------------------
+
+def _groq_chat(system: str, user: str) -> str:
+    """Call Groq with a system + user message and return the text response."""
+    from groq import Groq
+    import json as _json
+    client = Groq(api_key=os.environ.get("GROQ_API_KEY", ""))
+    resp = client.chat.completions.create(
+        model="llama-3.3-70b-versatile",
+        messages=[
+            {"role": "system", "content": system},
+            {"role": "user", "content": user},
+        ],
+        max_tokens=2048,
+    )
+    return resp.choices[0].message.content
+
+
+class LogsAnalyzeRequest(BaseModel):
+    log_text: str
+
+
+class PipelineAnalyzeRequest(BaseModel):
+    repo_full_name: str
+    file_path: Optional[str] = None
+    code_snippet: str
+
+
+class PredictorRequest(BaseModel):
+    repo_full_name: str
+    base_branch: str = "main"
+    diff: str
+
+
+@app.post("/logs/analyze", tags=["Logs"])
+async def logs_analyze_endpoint(request: LogsAnalyzeRequest):
+    """Analyze production logs and return structured incident data."""
+    import json as _json
+    if not request.log_text.strip():
+        raise HTTPException(status_code=400, detail="log_text must not be empty.")
+    lines = [l for l in request.log_text.splitlines() if l.strip()]
+    system = (
+        "You are a production log analysis expert. Analyze the provided logs and return ONLY valid JSON "
+        "with this exact structure (no markdown, no extra text):\n"
+        '{"total_lines": <int>, "summary": "<one paragraph summary>", '
+        '"representative_logs": ["<log1>", "<log2>", "<log3>"], '
+        '"incidents": [{"title": "<title>", "severity": "<critical|high|medium|low>", '
+        '"root_cause": "<cause>", "fix_steps": ["step1", "step2"], '
+        '"affected_services": ["svc1"]}]}'
+    )
+    try:
+        raw = _groq_chat(system, f"Logs:\n{request.log_text[:3000]}")
+        # extract JSON from response
+        start = raw.find("{")
+        end = raw.rfind("}") + 1
+        data = _json.loads(raw[start:end])
+        data.setdefault("total_lines", len(lines))
+        return data
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Analysis error: {exc}")
+
+
+@app.post("/pipeline/analyze", tags=["Pipeline"])
+async def pipeline_analyze_endpoint(request: PipelineAnalyzeRequest):
+    """Analyze a code snippet for security, bugs, and compliance issues."""
+    import json as _json
+    if not request.code_snippet.strip():
+        raise HTTPException(status_code=400, detail="code_snippet must not be empty.")
+    system = (
+        "You are a code security and quality expert. Analyze the provided code snippet and return ONLY valid JSON "
+        "with this exact structure (no markdown, no extra text):\n"
+        '{"compliance_score": <int 0-100>, '
+        '"violations": ["<security issue 1>", "<security issue 2>"], '
+        '"workflow_issues": ["<workflow/quality issue 1>", "<workflow/quality issue 2>"], '
+        '"suggestions": ["<improvement suggestion 1>", "<improvement suggestion 2>"]}'
+    )
+    user = f"Repository: {request.repo_full_name}\nFile: {request.file_path or 'unknown'}\n\nCode:\n{request.code_snippet[:3000]}"
+    try:
+        raw = _groq_chat(system, user)
+        start = raw.find("{")
+        end = raw.rfind("}") + 1
+        data = _json.loads(raw[start:end])
+        return data
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Analysis error: {exc}")
+
+
+@app.post("/predictor/predict", tags=["Predictor"])
+async def predictor_predict_endpoint(request: PredictorRequest):
+    """Predict CI/CD failures and merge conflicts from a git diff."""
+    import json as _json
+    if not request.diff.strip():
+        raise HTTPException(status_code=400, detail="diff must not be empty.")
+    system = (
+        "You are a CI/CD and git expert. Analyze the provided git diff and predict issues. "
+        "Return ONLY valid JSON with this exact structure (no markdown, no extra text):\n"
+        '{"risk_level": "<low|medium|high|critical>", '
+        '"merge_conflict_risk": "<low|medium|high|critical>", '
+        '"ci_failure_predictions": ["<prediction 1>", "<prediction 2>"], '
+        '"branch_violations": ["<violation 1>", "<violation 2>"], '
+        '"recommendations": ["<recommendation 1>", "<recommendation 2>"]}'
+    )
+    user = f"Repository: {request.repo_full_name}\nBase branch: {request.base_branch}\n\nDiff:\n{request.diff[:3000]}"
+    try:
+        raw = _groq_chat(system, user)
+        start = raw.find("{")
+        end = raw.rfind("}") + 1
+        data = _json.loads(raw[start:end])
+        return data
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Prediction error: {exc}")
+
+
 @app.post("/chat", tags=["Chat"])
 async def chat_endpoint(request: ChatRequest):
     """
