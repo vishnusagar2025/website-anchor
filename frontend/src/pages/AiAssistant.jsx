@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { Send, Trash2, Paperclip, X, Bot, User, Maximize2, Minimize2, Github } from 'lucide-react'
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+const GROQ_API_KEY = import.meta.env.VITE_GROQ_API_KEY
 
 // ── Inline markdown renderer ────────────────────────────────────────────────
 function renderMarkdown(text) {
@@ -73,6 +74,8 @@ Pick a suggestion below or type your question!`,
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, isLoading])
 
+  const SYSTEM_PROMPT = `You are Anchor AI, an expert engineering assistant specializing in GitHub workflows, DevOps, CI/CD, incident response, log analysis, code review, and security. Provide clear, concise, actionable answers with markdown formatting and code blocks.`
+
   const sendMessage = async (text) => {
     const userText = (text || input).trim()
     if (!userText || isLoading) return
@@ -86,25 +89,69 @@ Pick a suggestion below or type your question!`,
     const historyForAPI = updated.slice(1, -1)
 
     try {
-      const res = await fetch(`${API}/chat`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          message: userText,
-          history: historyForAPI,
-          context: context.trim() || null,
-        }),
-      })
+      let reply = null
 
-      if (!res.ok) throw new Error(`API ${res.status}`)
-      const data = await res.json()
-      setMessages(prev => [...prev, { role: 'assistant', content: data.reply }])
+      // ── Option 1: Call Groq directly from browser ──────────────────────────
+      if (GROQ_API_KEY) {
+        const groqMessages = [
+          { role: 'system', content: SYSTEM_PROMPT },
+          ...historyForAPI.map(m => ({ role: m.role === 'assistant' ? 'assistant' : 'user', content: m.content })),
+        ]
+        if (context.trim()) {
+          groqMessages.push({
+            role: 'user',
+            content: `[Context]\n\`\`\`\n${context.trim()}\n\`\`\`\n\n${userText}`,
+          })
+        } else {
+          groqMessages.push({ role: 'user', content: userText })
+        }
+
+        const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${GROQ_API_KEY}`,
+          },
+          body: JSON.stringify({
+            model: 'llama-3.3-70b-versatile',
+            messages: groqMessages,
+            max_tokens: 2048,
+          }),
+        })
+        if (groqRes.ok) {
+          const groqData = await groqRes.json()
+          reply = groqData.choices?.[0]?.message?.content
+        }
+      }
+
+      // ── Option 2: Fall back to backend /chat ──────────────────────────────
+      if (!reply && API) {
+        const res = await fetch(`${API}/chat`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            message: userText,
+            history: historyForAPI,
+            context: context.trim() || null,
+          }),
+        })
+        if (res.ok) {
+          const data = await res.json()
+          reply = data.reply
+        }
+      }
+
+      if (reply) {
+        setMessages(prev => [...prev, { role: 'assistant', content: reply }])
+      } else {
+        throw new Error('No AI provider available')
+      }
     } catch {
       setMessages(prev => [
         ...prev,
         {
           role: 'assistant',
-          content: `⚠️ **Backend offline.**\n\nStart the FastAPI server to get live AI responses:\n\`\`\`bash\nuvicorn main:app --reload\n\`\`\`\n\nOr set your \`GEMINI_API_KEY\` / \`ANTHROPIC_API_KEY\` in \`.env\`.`,
+          content: `⚠️ **AI not configured.**\n\nTo enable live AI responses, add your Groq API key to Vercel:\n\n**Key:** \`VITE_GROQ_API_KEY\`\n**Value:** your Groq key from [console.groq.com](https://console.groq.com)\n\nThen redeploy the site.`,
         },
       ])
     } finally {
