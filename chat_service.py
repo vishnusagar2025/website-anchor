@@ -144,6 +144,39 @@ def _stub_response() -> str:
 
 
 # ---------------------------------------------------------------------------
+# Groq multi-turn chat
+# ---------------------------------------------------------------------------
+
+def _chat_with_groq(history: list[dict], user_message: str, context: Optional[str]) -> str:
+    """Use Groq's OpenAI-compatible API for fast inference."""
+    from groq import Groq
+
+    api_key = os.environ.get("GROQ_API_KEY", "").strip()
+    client = Groq(api_key=api_key)
+
+    messages = [{"role": "system", "content": CHAT_SYSTEM_PROMPT}]
+    for msg in history:
+        messages.append({"role": msg["role"], "content": msg["content"]})
+
+    full_message = user_message
+    if context and context.strip():
+        full_message = (
+            f"[Context provided by user — use this to answer the question below]\n"
+            f"```\n{context.strip()}\n```\n\n"
+            f"{user_message}"
+        )
+
+    messages.append({"role": "user", "content": full_message})
+
+    response = client.chat.completions.create(
+        model="llama-3.3-70b-versatile",
+        messages=messages,
+        max_tokens=2048,
+    )
+    return response.choices[0].message.content
+
+
+# ---------------------------------------------------------------------------
 # Public interface
 # ---------------------------------------------------------------------------
 
@@ -160,15 +193,17 @@ def _is_placeholder(key: Optional[str]) -> bool:
 def chat(history: list[dict], user_message: str, context: Optional[str] = None) -> str:
     """
     Send a message and get a response from the configured AI provider.
-
-    Args:
-        history: List of previous messages [{"role": "user"|"assistant", "content": "..."}]
-        user_message: The latest user message (NOT yet in history)
-        context: Optional context (logs, runbook text) to inject into the prompt
-
-    Returns:
-        The AI assistant's response string (may contain markdown).
+    Auto-detects available API keys: Groq → Gemini → Claude → stub.
     """
+    # Auto-detect: prefer Groq if key is available (it's fastest + free)
+    groq_key = os.environ.get("GROQ_API_KEY", "").strip()
+    if groq_key and not _is_placeholder(groq_key):
+        try:
+            print("[chat_service] Using Groq (llama-3.3-70b-versatile)")
+            return _chat_with_groq(history, user_message, context)
+        except Exception as exc:
+            print(f"[chat_service] Groq error: {exc} — falling back")
+
     provider = os.environ.get("AI_PROVIDER", "gemini").strip().lower()
 
     if provider == "claude":
