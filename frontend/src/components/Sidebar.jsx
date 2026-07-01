@@ -14,7 +14,7 @@ function StatusDot({ ok }) {
   return <span className={`inline-block w-2 h-2 rounded-full ${ok === null ? 'bg-gray-500' : ok ? 'bg-anchor-green' : 'bg-anchor-red'}`} />
 }
 
-const BACKEND = import.meta.env.VITE_API_URL?.replace('/api', '') || ''
+const BACKEND = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
 export default function Sidebar() {
   const [backendOk, setBackendOk] = useState(null)

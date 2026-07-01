@@ -99,7 +99,7 @@ export default function LogIntelligence() {
     setError('')
     setResult(null)
     try {
-      const res = await analyzeLogs({ logs })
+      const res = await analyzeLogs({ log_text: logs })
       setResult(res)
       localStorage.setItem('logs_result', JSON.stringify(res))
       add({ logs: logs.slice(0, 100), result: res })
