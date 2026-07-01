@@ -32,6 +32,37 @@ function timeAgo(iso) {
   return `${Math.floor(diff / 3600)}h ago`
 }
 
+// Normalize any backend response shape into the shape the UI needs
+function normalizeResult(raw) {
+  if (!raw) return null
+  // Support both field naming conventions from different backend versions
+  const incidents = raw.incidents || []
+  const totalLines = raw.total_lines ?? raw.totalLines ?? raw.log_count ?? incidents.length
+  const summary = raw.summary || raw.analysis_summary || raw.description || ''
+  const representativeLogs = raw.representative_logs || raw.representative_lines || raw.sample_logs || []
+
+  const normalizedIncidents = incidents.map(inc => ({
+    severity: inc.severity || inc.risk_level || 'medium',
+    pattern: inc.pattern || inc.title || inc.type || inc.name || 'Unknown incident',
+    root_cause: inc.root_cause || inc.cause || inc.description || '',
+    cost_impact: inc.cost_impact || inc.infra_cost_impact || inc.impact || '',
+    recommended_fixes: Array.isArray(inc.recommended_fixes)
+      ? inc.recommended_fixes
+      : Array.isArray(inc.fix_steps)
+        ? inc.fix_steps
+        : Array.isArray(inc.recommendations)
+          ? inc.recommendations
+          : [],
+    runbook: Array.isArray(inc.runbook)
+      ? inc.runbook
+      : Array.isArray(inc.steps)
+        ? inc.steps
+        : [],
+  }))
+
+  return { total_lines: totalLines, incidents: normalizedIncidents, summary, representative_logs: representativeLogs }
+}
+
 function IncidentCard({ incident }) {
   const [open, setOpen] = useState(false)
   return (
@@ -48,37 +79,45 @@ function IncidentCard({ incident }) {
       </button>
       {open && (
         <div className="px-4 py-4 space-y-3 bg-anchor-card border-t border-anchor-border">
-          <div>
-            <p className="text-xs text-gray-400 mb-1">Root Cause</p>
-            <p className="text-sm text-gray-200">{incident.root_cause}</p>
-          </div>
-          <div>
-            <p className="text-xs text-gray-400 mb-1">Infrastructure Cost Impact</p>
-            <p className="text-sm text-anchor-yellow">{incident.cost_impact}</p>
-          </div>
-          <div>
-            <p className="text-xs text-gray-400 mb-1">Recommended Fixes</p>
-            <ul className="space-y-1">
-              {incident.recommended_fixes.map((f, i) => (
-                <li key={i} className="text-sm text-gray-300 flex gap-2">
-                  <span className="text-anchor-green">✓</span> {f}
-                </li>
-              ))}
-            </ul>
-          </div>
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-xs text-gray-400">Runbook</p>
-              <CopyButton text={incident.runbook.map((s, i) => `${i + 1}. ${s}`).join('\n')} />
+          {incident.root_cause && (
+            <div>
+              <p className="text-xs text-gray-400 mb-1">Root Cause</p>
+              <p className="text-sm text-gray-200">{incident.root_cause}</p>
             </div>
-            <ol className="space-y-1">
-              {incident.runbook.map((step, i) => (
-                <li key={i} className="text-sm text-gray-300 flex gap-2">
-                  <span className="text-anchor-accent font-mono font-bold shrink-0">{i + 1}.</span> {step}
-                </li>
-              ))}
-            </ol>
-          </div>
+          )}
+          {incident.cost_impact && (
+            <div>
+              <p className="text-xs text-gray-400 mb-1">Infrastructure Cost Impact</p>
+              <p className="text-sm text-anchor-yellow">{incident.cost_impact}</p>
+            </div>
+          )}
+          {incident.recommended_fixes.length > 0 && (
+            <div>
+              <p className="text-xs text-gray-400 mb-1">Recommended Fixes</p>
+              <ul className="space-y-1">
+                {incident.recommended_fixes.map((f, i) => (
+                  <li key={i} className="text-sm text-gray-300 flex gap-2">
+                    <span className="text-anchor-green">✓</span> {f}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {incident.runbook.length > 0 && (
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs text-gray-400">Runbook</p>
+                <CopyButton text={incident.runbook.map((s, i) => `${i + 1}. ${s}`).join('\n')} />
+              </div>
+              <ol className="space-y-1">
+                {incident.runbook.map((step, i) => (
+                  <li key={i} className="text-sm text-gray-300 flex gap-2">
+                    <span className="text-anchor-accent font-mono font-bold shrink-0">{i + 1}.</span> {step}
+                  </li>
+                ))}
+              </ol>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -87,7 +126,9 @@ function IncidentCard({ incident }) {
 
 export default function LogIntelligence() {
   const [logs, setLogs] = useState(() => localStorage.getItem('logs_form') || '')
-  const [result, setResult] = useState(() => { try { return JSON.parse(localStorage.getItem('logs_result')) } catch { return null } })
+  const [result, setResult] = useState(() => {
+    try { return normalizeResult(JSON.parse(localStorage.getItem('logs_result'))) } catch { return null }
+  })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [severityFilter, setSeverityFilter] = useState('all')
@@ -99,22 +140,27 @@ export default function LogIntelligence() {
     setError('')
     setResult(null)
     try {
-      const res = await analyzeLogs({ log_text: logs })
-      setResult(res)
-      localStorage.setItem('logs_result', JSON.stringify(res))
-      add({ logs: logs.slice(0, 100), result: res })
+      // Send 'logs' field — matches the deployed Render backend schema
+      const raw = await analyzeLogs({ logs })
+      const normalized = normalizeResult(raw)
+      setResult(normalized)
+      localStorage.setItem('logs_result', JSON.stringify(raw))
+      add({ logs: logs.slice(0, 100), result: normalized })
     } catch (err) {
-      setError(err.response?.data?.detail || 'Log analysis failed')
+      setError(err.response?.data?.detail || err.message || 'Log analysis failed')
     } finally {
       setLoading(false)
     }
   }
 
-  const reset = () => { setLogs(''); setResult(null); setError(''); setSeverityFilter('all'); localStorage.removeItem('logs_result'); localStorage.removeItem('logs_form') }
+  const reset = () => {
+    setLogs(''); setResult(null); setError(''); setSeverityFilter('all')
+    localStorage.removeItem('logs_result'); localStorage.removeItem('logs_form')
+  }
 
-  const filteredIncidents = result?.incidents.filter(inc =>
+  const filteredIncidents = (result?.incidents || []).filter(inc =>
     severityFilter === 'all' || inc.severity === severityFilter
-  ) || []
+  )
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -165,27 +211,31 @@ export default function LogIntelligence() {
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <Card title="Total Log Lines">
-              <p className="text-3xl font-bold text-white">{result.total_lines.toLocaleString()}</p>
+              <p className="text-3xl font-bold text-white">{(result.total_lines ?? 0).toLocaleString()}</p>
             </Card>
             <Card title="Incidents Found">
               <p className="text-3xl font-bold text-anchor-red">{result.incidents.length}</p>
             </Card>
           </div>
 
-          <Card title="System Health Summary">
-            <div className="flex justify-end mb-2">
-              <CopyButton text={result.summary} />
-            </div>
-            <p className="text-sm text-gray-300 leading-relaxed">{result.summary}</p>
-          </Card>
+          {result.summary && (
+            <Card title="System Health Summary">
+              <div className="flex justify-end mb-2">
+                <CopyButton text={result.summary} />
+              </div>
+              <p className="text-sm text-gray-300 leading-relaxed">{result.summary}</p>
+            </Card>
+          )}
 
-          <Card title="Representative Log Patterns">
-            <div className="space-y-1 max-h-48 overflow-y-auto">
-              {result.representative_logs.map((log, i) => (
-                <p key={i} className="text-xs font-mono text-gray-400 truncate">{log}</p>
-              ))}
-            </div>
-          </Card>
+          {result.representative_logs.length > 0 && (
+            <Card title="Representative Log Patterns">
+              <div className="space-y-1 max-h-48 overflow-y-auto">
+                {result.representative_logs.map((log, i) => (
+                  <p key={i} className="text-xs font-mono text-gray-400 truncate">{log}</p>
+                ))}
+              </div>
+            </Card>
+          )}
 
           {result.incidents.length > 0 && (
             <Card title="Incidents & Runbooks">
@@ -233,7 +283,7 @@ export default function LogIntelligence() {
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-gray-300 font-mono truncate max-w-xs">{h.logs}...</span>
                   <div className="flex items-center gap-3">
-                    <span className="text-xs text-anchor-red">{h.result.incidents.length} incidents</span>
+                    <span className="text-xs text-anchor-red">{h.result?.incidents?.length ?? 0} incidents</span>
                     <span className="text-xs text-gray-500">{timeAgo(h.timestamp)}</span>
                   </div>
                 </div>
